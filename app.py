@@ -214,6 +214,26 @@ if st.button("登録"):
 
     st.rerun()
 
+    st.header("登録データ削除")
+
+for i, record in enumerate(st.session_state.records):
+
+    col1, col2 = st.columns([5, 1])
+
+    with col1:
+        st.write(
+            f"{record['日付']} "
+            f"{record['キャスト']} "
+            f"{record['給与']:,}円"
+        )
+
+    with col2:
+        if st.button("削除", key=f"delete_{i}"):
+
+            st.session_state.records.pop(i)
+
+            st.rerun()
+
 # =========================
 # 集計
 # =========================
