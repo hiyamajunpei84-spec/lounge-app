@@ -255,22 +255,22 @@ if st.session_state.records:
     st.header("キャスト別出勤日数")
 
     summary = df.groupby("キャスト").agg(
-        出勤日数=("日付", "count"),
+        出勤日数=("日付", "nunique"),
         給与合計=("給与", "sum"),
         売上合計=("売上", "sum")
     ).reset_index()
 
     st.dataframe(summary, use_container_width=True)
     
-# =========================
-# Excel出力
-# =========================
+    # =========================
+    # Excel出力
+    # =========================
 
-st.header("Excel出力")
+    st.header("Excel出力")
 
-excel_buffer = BytesIO()
+    excel_buffer = BytesIO()
 
-with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
 
     df.to_excel(
         writer,
