@@ -284,11 +284,11 @@ if st.session_state.records:
         index=False
         )
 
-excel_buffer.seek(0)
+    excel_buffer.seek(0)
 
-st.download_button(
+    st.download_button(
     label="Excelダウンロード",
     data=excel_buffer,
     file_name=f"給与集計_{work_date}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    )
