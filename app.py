@@ -250,10 +250,10 @@ if not df.empty:
 
     st.header("登録データ削除")
 
-delete_df = pd.read_sql_query(
-    "SELECT * FROM records ORDER BY id DESC",
-    conn
-)
+    delete_df = pd.read_sql_query(
+        "SELECT * FROM records ORDER BY id DESC",
+        conn
+    )
 
 for _, row in delete_df.iterrows():
 
