@@ -152,16 +152,16 @@ for c in casts:
     min_value=0,
     step=100,
     key=f"champ_{c}"
-)
+    )
 
-m = CAST_MASTER[c]
+    m = CAST_MASTER[c]
 
-base = work_hours * m["時給"]
-drink = drink_count * m["ドリンク単価"]
+    base = work_hours * m["時給"]
+    drink = drink_count * m["ドリンク単価"]
 
-total = base + drink + champ
+    total = base + drink + champ
 
-results.append({
+    results.append({
         "キャスト": c,
         "勤務時間": work_hours,
         "基本給": base,
