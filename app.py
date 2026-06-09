@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import sqlite3
 from datetime import date
 from io import BytesIO
 
@@ -26,6 +27,23 @@ CAST_MASTER = {
     "なつき": {"時給": 1000, "ドリンク単価": 0},
     "みやこ": {"時給": 1200, "ドリンク単価": 0},
 }
+
+conn = sqlite3.connect("lounge.db")
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    work_date TEXT,
+    cast_name TEXT,
+    sales INTEGER,
+    card_sales INTEGER,
+    work_hours REAL,
+    salary INTEGER
+)
+""")
+
+conn.commit()
 
 # -------------------------
 # データ保存
@@ -189,14 +207,21 @@ if st.button("登録"):
 
     for r in results:
 
-        st.session_state.records.append({
-            "日付": str(work_date),
-            "キャスト": r["キャスト"],
-            "売上": sales_total,
-            "カード売上": card_sales,
-            "勤務時間": r["勤務時間"],
-            "給与": r["給与"]
-        })
+        cursor.execute("""
+        INSERT INTO records
+        (work_date, cast_name, sales, card_sales, work_hours, salary)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            str(work_date),
+            r["キャスト"],
+            sales_total,
+            card_sales,
+            r["勤務時間"],
+            r["給与"]
+        ))
+
+        conn.commit()
+    
 
     st.success("登録完了")
 
@@ -241,7 +266,10 @@ for i, record in enumerate(st.session_state.records):
 
 if st.session_state.records:
 
-    df = pd.DataFrame(st.session_state.records)
+    df = pd.read_sql_query(
+        "SELECT * FROM records",
+        conn
+    )
 
     st.divider()
 
@@ -261,6 +289,14 @@ if st.session_state.records:
     ).reset_index()
 
     st.dataframe(summary, use_container_width=True)
+
+    if st.button("全データ削除"):
+
+        cursor.execute("DELETE FROM records")
+        conn.commit()
+
+        st.success("全データ削除しました")
+        st.rerun()
     
     # =========================
     # Excel出力
