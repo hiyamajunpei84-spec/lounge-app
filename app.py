@@ -199,6 +199,35 @@ st.dataframe(df_result, use_container_width=True)
 # =========================
 # 登録
 # =========================
+if st.button("登録"):
+
+    for r in results:
+
+        st.session_state.records.append({
+            "日付": str(work_date),
+            "キャスト": r["キャスト"],
+            "売上": sales_total,
+            "カード売上": card_sales,
+            "勤務時間": r["勤務時間"],
+            "給与": r["給与"]
+        })
+
+    st.success("登録完了")
+
+    # 入力クリア
+    for k in list(st.session_state.keys()):
+
+        if (
+            k.startswith("group_")
+            or k.startswith("hour_")
+            or k.startswith("drink_")
+            or k.startswith("champ_")
+        ):
+            del st.session_state[k]
+
+    st.session_state.group_count = 1
+
+    st.rerun()
 
 
 
