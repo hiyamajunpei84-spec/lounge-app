@@ -213,11 +213,6 @@ df = pd.read_sql_query(
 
 if not df.empty:
 
-    df = pd.read_sql_query(
-        "SELECT * FROM records",
-        conn
-    )
-
     st.divider()
 
     st.header("登録一覧")
@@ -240,13 +235,9 @@ if not df.empty:
 
     st.dataframe(summary, use_container_width=True)
 
-    if st.button("全データ削除"):
-
-        cursor.execute("DELETE FROM records")
-        conn.commit()
-
-        st.success("全データ削除しました")
-        st.rerun()
+    # -------------------------
+    # 登録データ削除
+    # -------------------------
 
     st.header("登録データ削除")
 
@@ -255,60 +246,80 @@ if not df.empty:
         conn
     )
 
-for _, row in delete_df.iterrows():
+    for _, row in delete_df.iterrows():
 
-    col1, col2 = st.columns([5, 1])
+        col1, col2 = st.columns([5, 1])
 
-    with col1:
-        st.write(
-            f"{row['work_date']} "
-            f"{row['cast_name']} "
-            f"{row['salary']:,}円"
-        )
-
-    with col2:
-
-        if st.button(
-            "削除",
-            key=f"delete_{row['id']}"
-        ):
-
-            cursor.execute(
-                "DELETE FROM records WHERE id=?",
-                (int(row["id"]),)
+        with col1:
+            st.write(
+                f"{row['work_date']} "
+                f"{row['cast_name']} "
+                f"{row['salary']:,}円"
             )
 
-            conn.commit()
+        with col2:
 
-            st.rerun()
-    
-    # =========================
+            if st.button(
+                "削除",
+                key=f"delete_{row['id']}"
+            ):
+
+                cursor.execute(
+                    "DELETE FROM records WHERE id=?",
+                    (int(row["id"]),)
+                )
+
+                conn.commit()
+
+                st.rerun()
+
+    # -------------------------
     # Excel出力
-    # =========================
+    # -------------------------
 
     st.header("Excel出力")
 
     excel_buffer = BytesIO()
 
-    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+    with pd.ExcelWriter(
+        excel_buffer,
+        engine="openpyxl"
+    ) as writer:
 
         df.to_excel(
-        writer,
-        sheet_name="登録一覧",
-        index=False
+            writer,
+            sheet_name="登録一覧",
+            index=False
         )
 
         summary.to_excel(
-        writer,
-        sheet_name="キャスト集計",
-        index=False
+            writer,
+            sheet_name="キャスト集計",
+            index=False
         )
 
     excel_buffer.seek(0)
 
     st.download_button(
-    label="Excelダウンロード",
-    data=excel_buffer,
-    file_name=f"給与集計_{work_date}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        label="Excelダウンロード",
+        data=excel_buffer,
+        file_name=f"給与集計_{work_date}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key="excel_download"
     )
+
+    # -------------------------
+    # 全データ削除
+    # -------------------------
+
+    if st.button("全データ削除"):
+
+        cursor.execute(
+            "DELETE FROM records"
+        )
+
+        conn.commit()
+
+        st.success("全データ削除しました")
+
+        st.rerun()
