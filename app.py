@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
+from io import BytesIO
 
 st.set_page_config(page_title="ラウンジ管理アプリ", layout="wide")
 
@@ -260,3 +261,34 @@ if st.session_state.records:
     ).reset_index()
 
     st.dataframe(summary, use_container_width=True)
+    
+# =========================
+# Excel出力
+# =========================
+
+st.header("Excel出力")
+
+excel_buffer = BytesIO()
+
+with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+
+    df.to_excel(
+        writer,
+        sheet_name="登録一覧",
+        index=False
+    )
+
+    summary.to_excel(
+        writer,
+        sheet_name="キャスト集計",
+        index=False
+    )
+
+excel_buffer.seek(0)
+
+st.download_button(
+    label="Excelダウンロード",
+    data=excel_buffer,
+    file_name=f"給与集計_{work_date}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
