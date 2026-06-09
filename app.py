@@ -272,17 +272,17 @@ if st.session_state.records:
 
     with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
 
-    df.to_excel(
+        df.to_excel(
         writer,
         sheet_name="登録一覧",
         index=False
-    )
+        )
 
-    summary.to_excel(
+        summary.to_excel(
         writer,
         sheet_name="キャスト集計",
         index=False
-    )
+        )
 
 excel_buffer.seek(0)
 
