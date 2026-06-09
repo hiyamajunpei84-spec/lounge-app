@@ -28,7 +28,10 @@ CAST_MASTER = {
     "みやこ": {"時給": 1200, "ドリンク単価": 0},
 }
 
-conn = sqlite3.connect("lounge.db")
+conn = sqlite3.connect(
+    "lounge.db",
+    check_same_thread=False
+)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -45,12 +48,6 @@ CREATE TABLE IF NOT EXISTS records (
 
 conn.commit()
 
-# -------------------------
-# データ保存
-# -------------------------
-
-if "records" not in st.session_state:
-    st.session_state.records = []
 
 # =========================
 # ① 日付
@@ -203,68 +200,18 @@ st.dataframe(df_result, use_container_width=True)
 # 登録
 # =========================
 
-if st.button("登録"):
 
-    for r in results:
-
-        cursor.execute("""
-        INSERT INTO records
-        (work_date, cast_name, sales, card_sales, work_hours, salary)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            str(work_date),
-            r["キャスト"],
-            sales_total,
-            card_sales,
-            r["勤務時間"],
-            r["給与"]
-        ))
-
-        conn.commit()
-    
-
-    st.success("登録完了")
-
-    # 入力クリア
-    for k in list(st.session_state.keys()):
-
-        if (
-            k.startswith("group_")
-            or k.startswith("hour_")
-            or k.startswith("drink_")
-            or k.startswith("champ_")
-        ):
-            del st.session_state[k]
-
-    st.session_state.group_count = 1
-
-    st.rerun()
-
-    st.header("登録データ削除")
-
-for i, record in enumerate(st.session_state.records):
-
-    col1, col2 = st.columns([5, 1])
-
-    with col1:
-        st.write(
-            f"{record['日付']} "
-            f"{record['キャスト']} "
-            f"{record['給与']:,}円"
-        )
-
-    with col2:
-        if st.button("削除", key=f"delete_{i}"):
-
-            st.session_state.records.pop(i)
-
-            st.rerun()
 
 # =========================
 # 集計
 # =========================
 
-if st.session_state.records:
+df = pd.read_sql_query(
+    "SELECT * FROM records",
+    conn
+)
+
+if not df.empty:
 
     df = pd.read_sql_query(
         "SELECT * FROM records",
@@ -278,14 +225,17 @@ if st.session_state.records:
 
     st.header("人件費合計")
 
-    st.metric("総人件費", f"{df['給与'].sum():,} 円")
+    st.metric(
+        "総人件費",
+        f"{df['salary'].sum():,} 円"
+    )
 
     st.header("キャスト別出勤日数")
 
-    summary = df.groupby("キャスト").agg(
-        出勤日数=("日付", "nunique"),
-        給与合計=("給与", "sum"),
-        売上合計=("売上", "sum")
+    summary = df.groupby("cast_name").agg(
+        出勤日数=("work_date", "nunique"),
+        給与合計=("salary", "sum"),
+        売上合計=("sales", "sum")
     ).reset_index()
 
     st.dataframe(summary, use_container_width=True)
@@ -297,6 +247,40 @@ if st.session_state.records:
 
         st.success("全データ削除しました")
         st.rerun()
+
+    st.header("登録データ削除")
+
+delete_df = pd.read_sql_query(
+    "SELECT * FROM records ORDER BY id DESC",
+    conn
+)
+
+for _, row in delete_df.iterrows():
+
+    col1, col2 = st.columns([5, 1])
+
+    with col1:
+        st.write(
+            f"{row['work_date']} "
+            f"{row['cast_name']} "
+            f"{row['salary']:,}円"
+        )
+
+    with col2:
+
+        if st.button(
+            "削除",
+            key=f"delete_{row['id']}"
+        ):
+
+            cursor.execute(
+                "DELETE FROM records WHERE id=?",
+                (int(row["id"]),)
+            )
+
+            conn.commit()
+
+            st.rerun()
     
     # =========================
     # Excel出力
