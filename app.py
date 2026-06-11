@@ -261,10 +261,28 @@ if not df_today.empty:
         st.metric("本日（選択日）の売上", f"{today_sales:,} 円")
 
     st.header(f"【{work_date}】のキャスト別実績")
-    summary_today = df_today.groupby("cast_name").agg(
-        給与=("salary", "sum"),
-        勤務時間=("work_hours", "sum")
+    
+    # 1. 過去の全データから、キャストごとの「累計出勤日数」を計算
+    df_days = df_all.groupby("cast_name").agg(
+        通算出勤日数=("work_date", "nunique")
     ).reset_index()
+    
+    # 2. 選択された日（本日）の「給与」と「勤務時間」を計算
+    df_day_stats = df_today.groupby("cast_name").agg(
+        本日の給与=("salary", "sum"),
+        本日の勤務時間=("work_hours", "sum")
+    ).reset_index()
+    
+    # 3. 2つのデータをキャスト名をキーにして結合（ドッキング）
+    summary_today = pd.merge(df_day_stats, df_days, on="cast_name", how="left")
+    
+    # 見やすいように列の順番を並び替え
+    summary_today = summary_today[["キャスト", "本日の勤務時間", "本日の給与", "通算出勤日数"]] if "キャスト" in summary_today.columns else summary_today
+    # ※ グループ化するとキー（cast_name）が列になるため、日本語名に直します
+    summary_today = summary_today.rename(columns={
+        "cast_name": "キャスト"
+    })
+    
     st.dataframe(summary_today, use_container_width=True)
 
 
