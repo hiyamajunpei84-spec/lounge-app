@@ -319,12 +319,22 @@ if not df_all.empty:
         key="excel_download"
     )
 
-    # -------------------------
-    # 全データ削除
+   # -------------------------
+    # 選択した日のデータを全削除
     # -------------------------
     st.markdown("---")
-    if st.button("全データ削除", type="secondary", help="注意：すべてのデータが消去されます"):
-        cursor.execute("DELETE FROM records")
+    st.subheader("当日のデータ一括削除")
+    
+    # 誤操作防止の確認チェックボックス
+    confirm_delete = st.checkbox(f"【危険】{work_date} のデータをすべて削除することを確認しました")
+    
+    if st.button(f"{work_date} のデータを全削除", type="secondary", disabled=not confirm_delete):
+        # 選択されている日付（work_date）のレコードだけを削除するSQLを実行
+        cursor.execute(
+            "DELETE FROM records WHERE work_date = ?",
+            (str(work_date),)
+        )
         conn.commit()
-        st.success("全データを削除しました。")
+        
+        st.success(f"{work_date} のデータをすべて削除しました。")
         st.rerun()
