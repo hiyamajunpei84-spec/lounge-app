@@ -229,107 +229,92 @@ if st.button("登録"):
 
 
 # =========================
-# 集計
+# 集計・データ一覧（選択された日付のみにフィルター）
 # =========================
-
-df = pd.read_sql_query(
-    "SELECT * FROM records",
-    conn
+# SQLのWHERE句を使って、画面上部で選択された日付（work_date）のデータだけを読み込む
+df_today = pd.read_sql_query(
+    "SELECT * FROM records WHERE work_date = ?", 
+    conn, 
+    params=(str(work_date),)
 )
 
-if not df.empty:
+# 過去の全データ（累計実績の計算や削除用）
+df_all = pd.read_sql_query("SELECT * FROM records", conn)
 
+# 選択された日のデータがある場合のみ表示
+if not df_today.empty:
     st.divider()
+    st.header(f"【{work_date}】の登録一覧")
+    st.dataframe(df_today, use_container_width=True)
 
-    st.header("登録一覧")
-    st.dataframe(df, use_container_width=True)
+    # 経営指標の表示
+    st.header(f"【{work_date}】の経営集集計")
+    col_today_salary, col_today_sales = st.columns(2)
+    
+    with col_today_salary:
+        # その日だけの人件費合計
+        st.metric("本日（選択日）の人件費", f"{df_today['salary'].sum():,} 円")
+    
+    with col_today_sales:
+        # その日だけの売上（1つの日付に対して売上は共通なので、最初の1件を取得）
+        today_sales = df_today['sales'].iloc[0]
+        st.metric("本日（選択日）の売上", f"{today_sales:,} 円")
 
-    st.header("人件費合計")
-
-    st.metric(
-        "総人件費",
-        f"{df['salary'].sum():,} 円"
-    )
-
-    st.header("キャスト別出勤日数")
-
-    summary = df.groupby("cast_name").agg(
-        出勤日数=("work_date", "nunique"),
-        給与合計=("salary", "sum"),
-        売上合計=("sales", "sum")
+    st.header(f"【{work_date}】のキャスト別実績")
+    summary_today = df_today.groupby("cast_name").agg(
+        給与=("salary", "sum"),
+        勤務時間=("work_hours", "sum")
     ).reset_index()
+    st.dataframe(summary_today, use_container_width=True)
 
-    st.dataframe(summary, use_container_width=True)
 
+# ※データ削除やExcel出力のエリアは、過去の履歴も見ながら操作できるように
+# 全データ（df_all）をベースにするのがおすすめです。
+if not df_all.empty:
+    st.divider()
     # -------------------------
-    # 登録データ削除
+    # 登録データ削除（過去すべてから選択可能）
     # -------------------------
+    st.header("登録データ履歴・削除")
+    delete_df = pd.read_sql_query("SELECT * FROM records ORDER BY work_date DESC, id DESC", conn)
 
-    st.header("登録データ削除")
-
-    delete_df = pd.read_sql_query(
-        "SELECT * FROM records ORDER BY id DESC",
-        conn
-    )
-
+    deleted_id = None
     for _, row in delete_df.iterrows():
-
         col1, col2 = st.columns([5, 1])
-
         with col1:
-            st.write(
-                f"{row['work_date']} "
-                f"{row['cast_name']} "
-                f"{row['salary']:,}円"
-            )
-
+            st.write(f"【{row['work_date']}】 {row['cast_name']} : {row['salary']:,}円 (売上: {row['sales']:,}円)")
         with col2:
+            if st.button("削除", key=f"delete_{row['id']}"):
+                deleted_id = row["id"]
 
-            if st.button(
-                "削除",
-                key=f"delete_{row['id']}"
-            ):
-
-                cursor.execute(
-                    "DELETE FROM records WHERE id=?",
-                    (int(row["id"]),)
-                )
-
-                conn.commit()
-
-                st.rerun()
+    if deleted_id is not None:
+        cursor.execute("DELETE FROM records WHERE id=?", (int(deleted_id),))
+        conn.commit()
+        st.success("データを削除しました。")
+        st.rerun()
 
     # -------------------------
     # Excel出力
     # -------------------------
-
-    st.header("Excel出力")
-
+    st.header("Excel出力（全データ）")
     excel_buffer = BytesIO()
+    
+    # Excelには全データと、全データベースのキャスト集計を出力
+    summary_all = df_all.groupby("cast_name").agg(
+        出勤日数=("work_date", "nunique"),
+        給与合計=("salary", "sum"),
+        稼働時間=("work_hours", "sum")
+    ).reset_index()
 
-    with pd.ExcelWriter(
-        excel_buffer,
-        engine="openpyxl"
-    ) as writer:
-
-        df.to_excel(
-            writer,
-            sheet_name="登録一覧",
-            index=False
-        )
-
-        summary.to_excel(
-            writer,
-            sheet_name="キャスト集計",
-            index=False
-        )
-
+    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+        df_all.to_excel(writer, sheet_name="登録一覧", index=False)
+        summary_all.to_excel(writer, sheet_name="キャスト累計集計", index=False)
     excel_buffer.seek(0)
 
     st.download_button(
         label="Excelダウンロード",
         data=excel_buffer,
-        file_name=f"給与集計_{work_date}.xlsx",
+        file_name=f"給与集計_全件_{work_date}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         key="excel_download"
     )
@@ -337,15 +322,9 @@ if not df.empty:
     # -------------------------
     # 全データ削除
     # -------------------------
-
-    if st.button("全データ削除"):
-
-        cursor.execute(
-            "DELETE FROM records"
-        )
-
+    st.markdown("---")
+    if st.button("全データ削除", type="secondary", help="注意：すべてのデータが消去されます"):
+        cursor.execute("DELETE FROM records")
         conn.commit()
-
-        st.success("全データ削除しました")
-
+        st.success("全データを削除しました。")
         st.rerun()
